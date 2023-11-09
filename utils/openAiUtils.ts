@@ -2,6 +2,12 @@
 
 import axios, { AxiosError, AxiosResponse } from 'axios';
 
+interface RunData {
+  id: string;
+  status: string;
+  // Include other properties of the run data if needed
+}
+
 // Define the expected structure of the API responses
 interface OpenAIResponse<T> {
   data: T;
@@ -19,7 +25,9 @@ interface ThreadData {
 
 interface MessageData {
   content: { text: string }[];
+  role: string; // Add this line to include the role property
   // Include other properties of the message data if needed
+  created_at?: number; // Assuming 'created_at' is a timestamp, make it optional if it's not always present
 }
 
 interface ImageData {
@@ -50,8 +58,9 @@ export const createAssistant = async (apiKey: string, instructions: string, name
       },
       { headers }
     );
-    console.log('assistantResponse', assistantResponse.data.id);
-    const assistantId = assistantResponse.data.id;
+    // Correctly access the id property from the nested data object
+    console.log('assistantResponse', assistantResponse.data.data.id);
+    const assistantId = assistantResponse.data.data.id;
     return assistantId;
   } catch (error: any) {
     const axiosError = error as AxiosError;
@@ -59,7 +68,6 @@ export const createAssistant = async (apiKey: string, instructions: string, name
     throw axiosError;
   }
 };
-
 
 
 export const generateText = async (
@@ -85,7 +93,8 @@ export const generateText = async (
         {},
         { headers }
       );
-      threadId = threadResponse.data.id;
+      // Correctly access the id property from the nested data object
+      threadId = threadResponse.data.data.id;
       console.log(`New thread created with ID: ${threadId}`);
     } else {
       console.log(`Using existing thread with ID: ${threadId}`);
@@ -110,24 +119,27 @@ export const generateText = async (
     do {
       // Run the Assistant
       console.log('Running the assistant');
-      runResponse = await axios.post<OpenAIResponse<any>>(
+      // Then use this interface in the Axios call
+      runResponse = await axios.post<OpenAIResponse<RunData>>(
         `https://api.openai.com/v1/threads/${threadId}/runs`,
         {
           assistant_id: assistantId,
         },
         { headers }
       );
-      console.log(`Assistant run started with ID: ${runResponse.data.id}`);
+      console.log(`Assistant run started with ID: ${runResponse.data.data.id}`);
+
 
       // Poll the run status until it's completed or failed
-      runStatus = runResponse.data.status;
+      runStatus = runResponse.data.data.status;
       while (runStatus !== 'completed' && runStatus !== 'failed') {
         console.log(`Polling for run status: ${runStatus}`);
         const statusResponse = await axios.get<OpenAIResponse<any>>(
-          `https://api.openai.com/v1/threads/${threadId}/runs/${runResponse.data.id}`,
+          `https://api.openai.com/v1/threads/${threadId}/runs/${runResponse.data.data.id}`,
           { headers }
         );
-        runStatus = statusResponse.data.status;
+        // Assuming statusResponse.data has a structure like { data: { status: string } }
+        runStatus = statusResponse.data.data.status;
         // Implement a delay between polls if necessary
         await new Promise(resolve => setTimeout(resolve, 1000)); // Delay of 1 second
       }
@@ -152,9 +164,10 @@ export const generateText = async (
     );
 
     // Filter for assistant messages and sort by creation time to get the latest
+    // Filter for assistant messages and sort by creation time to get the latest
     const assistantMessages = messagesResponse.data.data
       .filter((message) => message.role === 'assistant')
-      .sort((a, b) => b.created_at - a.created_at); // Assuming 'created_at' is a timestamp
+      .sort((a, b) => (b.created_at || 0) - (a.created_at || 0)); // Assuming 'created_at' is a timestamp
 
     // Get the latest assistant message
     const latestAssistantMessage = assistantMessages[0];
