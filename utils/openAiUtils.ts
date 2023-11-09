@@ -24,7 +24,13 @@ export const createAssistant = async (apiKey: string, instructions: string, name
   }
 };
 
-export const generateText = async (prompt: string, apiKey: string, assistantId: string, threadId = null, retryCount = 3) => {
+  export const generateText = async (
+    prompt: string,
+    apiKey: string,
+    assistantId: string | null | undefined,
+    threadId: string | null | undefined = null,
+    retryCount: number = 3
+  ) => {
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
     'OpenAI-Beta': 'assistants=v1'
@@ -158,3 +164,64 @@ export const generateAudio = async (text: string, voice: string, apiKey: string)
     throw error;
   }
 };
+
+
+export async function gptCustomRequest(
+  model: string,
+  temperature: number,
+  content: string, // This should be a plain text string, not JSON stringified
+  prompt: string, // This should be a plain text string, not JSON stringified
+  maxTokens: number,
+  apiKey: string,
+  base64Image: string | null = null // Pass the base64 image string directly
+) {
+  try {
+    const messages = [
+      {
+        role: 'system',
+        content: content, // Directly pass the content string
+      },
+      {
+        role: 'user',
+        content: prompt, // Directly pass the prompt string
+      },
+    ];
+
+    // If a base64 image is provided, add it to the messages array
+    /*
+    if (base64Image) {
+      messages.push({
+        role: 'user',
+        content: {
+          type: 'image_base64', // Specify the type as image_base64
+          data: base64Image, // Pass the base64 image data
+        },
+      });
+    }*/
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: model,
+        max_tokens: maxTokens,
+        temperature: temperature,
+        messages: messages,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      }
+    );
+
+    return response.data.choices[0].message.content;
+  } catch (error: any) {
+    console.error('Error in gptCustomRequest:', error.message);
+    if (error.response) {
+      console.error('Error data:', error.response.data.error);
+      return error.response.data.error.message;
+    }
+    throw error; // Re-throw the error if it's not an Axios error
+  }
+}  

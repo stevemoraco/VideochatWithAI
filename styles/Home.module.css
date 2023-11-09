@@ -1,26 +1,44 @@
 /* Home.module.css */
+.container {
+  padding: 2rem;
+  background-color: #000; /* Dark background for dark mode */
+  color: #ffffff; /* Light text for contrast */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern font */
+}
+
 .chatContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2rem; /* Spacing between elements */
 }
 
-.characterImage img {
-  max-width: 100%;
-  height: auto;
+/* Headings */
+.heading {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem; /* Spacing below headings */
 }
 
-.webcamFeed {
-  width: 100%; /* Full width */
-  display: flex;
-  justify-content: center;
+/* Input and Button Styles */
+.input, .button {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  margin: 0.5rem 0;
+  border: none;
+  border-radius: 4px;
 }
 
-.webcamFeed video {
-  width: 100%; /* Full width */
-  object-fit: cover; /* Cover the aspect ratio */
-  aspect-ratio: 16 / 9; /* Set the aspect ratio to 16:9 */
+.button {
+  background-color: #1a73e8; /* Google Blue */
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #1669c7; /* Darker blue on hover */
 }
 
 /* Media query for desktop screens */
@@ -31,5 +49,137 @@
 
   .characterImage, .webcamFeed {
     width: 50%; /* Split the width */
+    margin-bottom: 2rem; /* Adjusted padding under the video and picture to 2rem */
+  }
+}
+
+/* General Spacing and Padding */
+.paragraph, .label, .select, .button {
+  margin-bottom: 1rem; /* Consistent spacing below elements */
+}
+
+/* Modern Font Styles */
+.bodyText, .input, .button, .select, .paragraph, .label {
+  font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; /* Modern font stack */
+  line-height: 1.6; /* Improved readability */
+}
+
+/* Dark Mode Specific Styles */
+.bodyText {
+  background-color: #121212; /* Dark background for dark mode */
+  color: #ffffff; /* Light text for contrast */
+}
+
+.input, .select {
+  background-color: #333333; /* Dark input backgrounds */
+  color: #ffffff; /* Light text for inputs */
+}
+
+.inputPlaceholder, .select {
+  color: #bbbbbb; /* Lighter placeholder text for better contrast */
+}
+
+.inputFocus, .selectFocus, .buttonFocus {
+  outline: 2px solid #1a73e8; /* Focus outline to match button color */
+}
+
+
+
+
+/* Aspect Ratio Container for maintaining the aspect ratio of child elements */
+.aspectRatioContainer {
+  position: relative;
+  width: 100%;
+  /* Define a 16:9 aspect ratio */
+  padding-top: 56.25%;
+  margin-bottom: 2rem; /* Spacing below the aspect ratio containers */
+}
+
+/* Common styles for AI character image and webcam feed */
+.aspectRatioContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px; /* Rounded corners */
+  object-fit: cover; /* Ensure the content covers the area without stretching */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Media query for mobile screens */
+@media (max-width: 767px) {
+  .chatContainer {
+    flex-direction: column;
+  }
+
+  .aspectRatioContainer {
+    width: 100%; /* Full width on mobile */
+  }
+}
+
+/* Media query for desktop screens */
+@media (min-width: 768px) {
+  .chatContainer {
+    flex-direction: row;
+    align-items: flex-start; /* Align items to the start on larger screens */
+  }
+
+  .aspectRatioContainer {
+    width: 48%; /* Slightly less than half the width to account for gap */
+  }
+
+  .characterImage, .webcamFeed {
+    /* No need for margin-bottom here as it's handled by .aspectRatioContainer */
+  }
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .aspectRatioContainer {
+    margin-bottom: 1rem; /* Less spacing on mobile */
+  }
+}
+
+/* Aspect Ratio Container for maintaining the aspect ratio of child elements */
+.aspectRatioContainer {
+  position: relative;
+  width: 100%;
+  /* Define a 16:9 aspect ratio */
+  padding-top: 56.25%; /* 9/16 = 0.5625 */
+  margin-bottom: 2rem; /* Spacing below the aspect ratio containers */
+}
+
+/* Common styles for AI character image and webcam feed */
+.aspectRatioContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px; /* Rounded corners */
+  object-fit: cover; /* Ensure the content covers the area without stretching */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Media query for desktop screens */
+@media (min-width: 768px) {
+  .chatContainer {
+    flex-direction: row;
+    align-items: flex-start; /* Align items to the start on larger screens */
+    gap: 2%; /* Gap between elements */
+  }
+
+  .aspectRatioContainer {
+    width: 49%; /* Adjust width to account for the gap */
+    padding-top: 27.75%; /* Adjust padding-top to maintain 16:9 aspect ratio */
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .aspectRatioContainer {
+    margin-bottom: 1rem; /* Less spacing on mobile */
   }
 }

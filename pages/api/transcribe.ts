@@ -11,11 +11,18 @@ function bufferToStream(buffer: any) {
 }
 
 export default async (req: NextApiRequest, res: NextApiResponse) => {
-  const { audio: base64Audio, format } = req.body;
+  let { audio: base64Audio, format } = req.body;
+
+  console.log('input', format);
+  if(format === 'm4a') {
+    format = 'mp3';
+  }
+  console.log('input', format);
+
 
   // Convert base64 to buffer
   const buffer = Buffer.from(base64Audio.split(',')[1], 'base64');
-
+  
   // Convert buffer to stream
   const stream = bufferToStream(buffer);
 
