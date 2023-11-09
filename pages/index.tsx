@@ -8,6 +8,8 @@
   import { useRecorder } from '../hooks/useRecorder';
   import axios from 'axios';
 import Cookies from 'js-cookie';
+import Head from 'next/head';
+
 
   interface Message {
     sender: 'user' | 'ai' | 'system';
@@ -302,6 +304,28 @@ import Cookies from 'js-cookie';
 
     return (
       <div>
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+          <title>Chat with AI Characters | FacetimeAnyone.com</title>
+          <link rel="icon" href="/favicon.ico" />
+          <link rel="apple-touch-icon" href="/header.jpg" />
+
+          {/* Twitter Card data */}
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:site" content="@SteveMoraco" />
+          <meta name="twitter:title" content="Chat with AI Characters | FacetimeAnyone.com" />
+          <meta
+            name="twitter:description"
+            content="Experience interactive conversations with AI characters. Capture moments and transcribe audio in real-time on FacetimeAnyone.com."
+          />
+          <meta name="twitter:image" content="https://facetimeanyone.com/header.jpg" />
+
+          {/* Google / Schema.org */}
+          <meta itemProp="name" content="Chat with AI Characters | FacetimeAnyone.com" />
+          <meta itemProp="description" content="Experience interactive conversations with AI characters. Capture moments and transcribe audio in real-time on FacetimeAnyone.com." />
+          <meta itemProp="image" content="/header.jpg" />
+        </Head>
         {!isApiKeyEntered && <ApiKeyForm onSubmit={handleApiKeySubmit} />}
         {isApiKeyEntered && !isCharacterSelected && (
           <form onSubmit={handleCharacterSelection}>
