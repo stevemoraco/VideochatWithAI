@@ -53,7 +53,7 @@ import Head from 'next/head';
       if (isRecording) {
         stopRecording();
         captureScreenshot(); // Capture the screenshot when recording stops
-        addMessageToConversation('system', 'Recording stopped early by user.');
+        //addMessageToConversation('system', 'Recording stopped early by user.');
       }
     };
 
@@ -93,12 +93,13 @@ import Head from 'next/head';
 
           const [imageUrl, assistantRealId] = await Promise.all([imageUrlPromise, assistantIdPromise]);
 
+          console.log('image & assistant id', imageUrl, assistantRealId);
           setCharacterImage(imageUrl);
           setIsCharacterSelected(true);
-          addMessageToConversation('system', `Character image URL: ${imageUrl}`);
+          //addMessageToConversation('system', `Character image URL: ${imageUrl}`);
 
           setAssistantId(assistantRealId);
-          addMessageToConversation('system', `Assistant ID: ${assistantRealId}`);
+          //addMessageToConversation('system', `Assistant ID: ${assistantRealId}`);
 
           const initialReplyPromise = generateText(`You are ${characterName}. Please greet me in a way that is recognizable as you, and then ask me a question getting to know me. This is our first time meeting. Make sure to stay in character during our whole conversation`, apiKey, assistantRealId);
           const initialReply = await initialReplyPromise;
@@ -108,13 +109,13 @@ import Head from 'next/head';
 
           const audioUrlPromise = generateAudio(initialReply.text, 'onyx', apiKey);
           const audioUrl = await audioUrlPromise;
-          addMessageToConversation('system', `Audio URL: ${audioUrl}`);
+          //addMessageToConversation('system', `Audio URL: ${audioUrl}`);
 
           if (audioRef.current) {
             audioRef.current.src = audioUrl;
             audioRef.current.load();
             audioRef.current.play().then(() => {
-              addMessageToConversation('system', 'Audio is playing');
+              //addMessageToConversation('system', 'Audio is playing');
             }).catch((e) => {
               addMessageToConversation('system', `Error playing TTS audio: ${e}`);
             });
@@ -129,7 +130,7 @@ import Head from 'next/head';
     useEffect(() => {
       if (audioRef.current) {
         audioRef.current.onended = () => {
-          addMessageToConversation('system', 'Character message ended, starting user audio recording.');
+          //addMessageToConversation('system', 'Character message ended, starting user audio recording.');
           startRecording();
           recordingTimeoutRef.current = setTimeout(() => {
             stopRecording();
@@ -154,7 +155,7 @@ import Head from 'next/head';
           .then((stream) => {
             if (webcamRef.current && webcamRef.current.video) {
               webcamRef.current.video.srcObject = stream;
-              addMessageToConversation('system', 'Webcam stream started.');
+              //addMessageToConversation('system', 'Webcam stream started.');
             }
           })
           .catch((error) => {
@@ -170,7 +171,7 @@ import Head from 'next/head';
       if (shouldProcessAudio) {
         const transcribeAndGenerateResponse = async () => {
           if (!isRecording && audioData && !hasGeneratedResponse) {
-            addMessageToConversation('system', 'Audio recording stopped, sending for transcription.');
+            //addMessageToConversation('system', 'Audio recording stopped, sending for transcription.');
             const reader = new FileReader();
             reader.onloadend = async () => {
               const base64Audio = reader.result as string;
@@ -186,15 +187,15 @@ import Head from 'next/head';
                 addMessageToConversation('user', transcript);
 
                 if (assistantId && transcript) {
-                  addMessageToConversation('system', 'Generating AI response based on transcript...');
-                  const response = await generateText(transcript, apiKey, assistantId, threadId);
+                  //addMessageToConversation('system', 'Generating AI response based on transcript...');
+                  const response = await generateText(transcript, apiKey, assistantId, threadId as null | undefined);
                   const nextReplyText = response.text;
                   setThreadId(response.newThreadId);
                   addMessageToConversation('ai', nextReplyText);
 
                   if (nextReplyText && nextReplyText !== transcript) {
                     const nextAudioUrl = await generateAudio(nextReplyText, 'onyx', apiKey);
-                    addMessageToConversation('system', `Next audio URL: ${nextAudioUrl}`);
+                    //addMessageToConversation('system', `Next audio URL: ${nextAudioUrl}`);
                     if (audioRef.current) {
                       audioRef.current.src = nextAudioUrl;
                       audioRef.current.play().then(() => {
@@ -319,7 +320,7 @@ import Head from 'next/head';
             name="twitter:description"
             content="Experience interactive conversations with AI characters. Capture moments and transcribe audio in real-time on FacetimeAnyone.com."
           />
-          <meta name="twitter:image" content="https://facetimeanyone.com/header.jpg" />
+          <meta name="twitter:image" content="/header.jpg" />
 
           {/* Google / Schema.org */}
           <meta itemProp="name" content="Chat with AI Characters | FacetimeAnyone.com" />

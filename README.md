@@ -35,7 +35,16 @@ Instructions on how to install and set up the project locally.
 Information on how to contribute to the project for developers interested in enhancing the application's features.
 
 ## License
-Details regarding the licensing of the project.
+
+This AI Video Chat Application is licensed under the GNU Affero General Public License version 3 (AGPLv3) with an additional attribution requirement.
+
+You are free to use, modify, and distribute this software under the terms of the AGPLv3, provided that any derivative works or modifications must also be made available under the same license. The full terms of the AGPLv3 can be found at [https://www.gnu.org/licenses/agpl-3.0.html](https://www.gnu.org/licenses/agpl-3.0.html).
+
+In addition to the requirements of the AGPLv3, you must also provide clear and prominent attribution to the original source of this software in any derivative works or modified versions.
+
+This additional attribution requirement is a condition of the license granted to you for the use of this software and is not part of the AGPLv3.
+
+Note: This license does not extend to the use of OpenAI's APIs (DALL·E 3, GPT-4, etc.), which are subject to OpenAI's own licensing and usage terms.
 
 ### File Tree Structure
 
