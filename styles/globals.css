@@ -1,0 +1,27 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+.video-chat-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video-chat-item {
+  flex: 1; /* Each child will take up an equal amount of space */
+  max-width: 50%; /* Maximum width set to 50% */
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}

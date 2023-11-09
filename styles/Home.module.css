@@ -1,0 +1,35 @@
+/* Home.module.css */
+.chatContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.characterImage img {
+  max-width: 100%;
+  height: auto;
+}
+
+.webcamFeed {
+  width: 100%; /* Full width */
+  display: flex;
+  justify-content: center;
+}
+
+.webcamFeed video {
+  width: 100%; /* Full width */
+  object-fit: cover; /* Cover the aspect ratio */
+  aspect-ratio: 16 / 9; /* Set the aspect ratio to 16:9 */
+}
+
+/* Media query for desktop screens */
+@media (min-width: 768px) {
+  .chatContainer {
+    flex-direction: row;
+  }
+
+  .characterImage, .webcamFeed {
+    width: 50%; /* Split the width */
+  }
+}

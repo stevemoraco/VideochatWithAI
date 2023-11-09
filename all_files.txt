@@ -1,0 +1,945 @@
+```
+Video-Chat-With-AI/
+ ├── .cache
+ ├── .upm
+ ├── .config
+ ├── public
+ |  ├── svgs
+ ├── pages
+ |  ├── api
+ |  |  ├── hello.ts
+ |  |  ├── transcribe.ts
+ |  ├── _app.tsx
+ |  ├── index.tsx
+ ├── styles
+ |  ├── ChatBox.module.css
+ |  ├── globals.css
+ ├── next-env.d.ts
+ ├── .swc
+ ├── node_modules
+ ├── .next
+ ├── cache
+ ├── hooks
+ |  ├── useRecorder.ts
+ ├── utils
+ |  ├── audioUtils.ts
+ |  ├── cookieUtils.ts
+ |  ├── openAiUtils.ts
+ ├── context
+ |  ├── ChatContext.tsx
+ ├── components
+ |  ├── Spinner.tsx
+ |  ├── ChatInput.tsx
+ |  ├── ChatBox.tsx
+ |  ├── WebcamRecorder.tsx
+ |  ├── ApiKeyForm.tsx
+ ├── contributing.md
+ ├── README.md
+ └── next.config.js
+```
+
+./pages/api/hello.ts
+```
+// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+type Data = {
+  name: string
+}
+
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
+  res.status(200).json({ name: 'John Doe' })
+}
+
+```
+
+
+./pages/api/transcribe.ts
+```
+// pages/api/transcribe.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import axios from 'axios';
+import FormData from 'form-data';
+
+export default async (req: NextApiRequest, res: NextApiResponse) => {
+  const { audio: base64Audio, format, apiKey } = req.body;
+
+  if (!apiKey) {
+    return res.status(400).json({ error: 'API key is required' });
+  }
+
+  // Convert base64 to buffer
+  const buffer = Buffer.from(base64Audio.split(',')[1], 'base64');
+
+  // Create a new FormData object
+  const formData = new FormData();
+  formData.append('file', buffer, { filename: `audio.${format}`, contentType: `audio/${format}` });
+  formData.append('model', 'whisper-1');
+
+  try {
+    const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+      headers: {
+        ...formData.getHeaders(),
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+    res.status(200).json(response.data);
+  } catch (error: any) {
+    console.error('Error transcribing audio:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({ error: error.response?.data.error || 'Internal Server Error' });
+  }
+};
+```
+
+
+./pages/_app.tsx
+```
+import React from 'react';
+import { AppProps } from 'next/app';
+import { ChatProvider } from '../context/ChatContext';
+import '../styles/globals.css';
+
+const MyApp: React.FC<AppProps> = ({ Component, pageProps }) => {
+  return (
+    <ChatProvider>
+      <Component {...pageProps} />
+    </ChatProvider>
+  );
+};
+
+export default MyApp;
+```
+
+
+./pages/index.tsx
+```
+// pages/index.tsx
+import React, { useState, useRef, useContext, useEffect } from 'react';
+import Webcam from 'react-webcam';
+import { ChatContext } from '../context/ChatContext';
+import ApiKeyForm from '../components/ApiKeyForm';
+import { generateImage, generateAudio } from '../utils/openAiUtils';
+
+const IndexPage: React.FC = () => {
+  const [characterName, setCharacterName] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [isApiKeyEntered, setIsApiKeyEntered] = useState(false); // State to track if API key has been entered
+  const [isCharacterSelected, setIsCharacterSelected] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const { characterImage, setCharacterImage } = useContext(ChatContext);
+  const audioRef = useRef<HTMLAudioElement>(null); // Define audioRef here
+  const webcamRef = useRef<Webcam>(null);
+  const mediaRecorderRef = useRef<MediaRecorder>(null);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+
+  const handleApiKeySubmit = (enteredApiKey: string) => {
+    setApiKey(enteredApiKey);
+    setIsApiKeyEntered(true); // Set to true after API key is entered
+  };
+
+  
+  const handleCharacterSelection = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log(`Character selected: ${characterName}`); // Log the character selection
+    if (characterName && apiKey) {
+      try {
+        const imageUrl = await generateImage(characterName, apiKey);
+        console.log(`Image generated: ${imageUrl}`); // Log the image URL
+        setCharacterImage(imageUrl);
+        setIsCharacterSelected(true);
+        // Generate and play the initial greeting from the character
+        const greetingText = `Hello, I am ${characterName}. How can I assist you today?`;
+        console.log(`Initial greeting: ${greetingText}`); // Log the greeting text
+        await playResponseAudio(greetingText);
+      } catch (error) {
+        console.error('Error in character selection:', error);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          if (!mediaRecorderRef.current) {
+            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorderRef.current.addEventListener('dataavailable', (event: BlobEvent) => {
+              if (event.data.size > 0) {
+                setRecordedChunks((prev) => [...prev, event.data]);
+              }
+            });
+          }
+        })
+        .catch(error => console.error('Error accessing user media:', error));
+    } else {
+      console.error('getUserMedia not supported on your browser!');
+    }
+  }, []);
+
+  const startRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const playResponseAudio = async (responseText: string) => {
+    console.log(`Playing response audio for text: ${responseText}`); // Log the response text
+    try {
+      const audioResponseUrl = await generateAudio(responseText, 'alloy', apiKey);
+      console.log(`TTS audio generated: ${audioResponseUrl}`); // Log the TTS audio URL
+      if (audioRef.current) {
+        audioRef.current.src = audioResponseUrl;
+        audioRef.current.play().catch((e) => console.error('Error playing TTS audio:', e));
+      }
+    } catch (error) {
+      console.error('Error generating TTS audio:', error);
+    }
+  };
+
+    return (
+      <div>
+        {!isApiKeyEntered && <ApiKeyForm onSubmit={handleApiKeySubmit} />}
+        {isApiKeyEntered && !isCharacterSelected && (
+          <form onSubmit={handleCharacterSelection}>
+            <label htmlFor="character-name">Who would you like to chat with?</label>
+            <input
+              id="character-name"
+              type="text"
+              value={characterName}
+              onChange={(e) => setCharacterName(e.target.value)}
+              placeholder="Enter character name"
+            />
+            <button type="submit">Start Chat</button>
+          </form>
+        )}
+      {isCharacterSelected && (
+        <div style={{ display: 'flex' }}>
+          <div style={{ width: '50%' }}>
+            {characterImage && <img src={characterImage} alt="AI Character" style={{ width: '100%' }} />}
+          </div>
+          <div style={{ width: '50%' }}>
+            <Webcam audio={true} ref={webcamRef} screenshotFormat="image/jpeg" style={{ width: '100%' }} />
+            {isRecording ? (
+              <button onClick={stopRecording}>Stop Recording</button>
+            ) : (
+              <button onClick={startRecording}>Start Recording</button>
+            )}
+          </div>
+        </div>
+      )}
+        <audio
+          ref={audioRef}
+          onEnded={() => console.log('Audio playback finished.')}
+          onError={(e) => console.error('Error with audio playback:', e)}
+        />
+        </div>
+          );
+        };
+
+        export default IndexPage;
+```
+
+
+./styles/ChatBox.module.css
+```
+.chat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.character-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.messages {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+}
+
+.message {
+  padding: 10px;
+  margin: 5px;
+  border-radius: 5px;
+  background-color: #f0f0f0;
+}
+
+.message.ai {
+  align-self: flex-start;
+  background-color: #d1e7dd;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #cff4fc;
+}
+```
+
+
+./styles/globals.css
+```
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+.video-chat-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video-chat-item {
+  flex: 1; /* Each child will take up an equal amount of space */
+  max-width: 50%; /* Maximum width set to 50% */
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+```
+
+
+./next-env.d.ts
+```
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/basic-features/typescript for more information.
+
+```
+
+
+./hooks/useRecorder.ts
+```
+import { useState, useCallback } from 'react';
+
+export const useRecorder = () => {
+  const [mediaBlobUrl, setMediaBlobUrl] = useState<string | null>(null);
+  const [audioData, setAudioData] = useState<Blob | null>(null); // Add this line
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  let mediaRecorder: MediaRecorder | null = null;
+
+  const startRecording = useCallback(() => {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      mediaRecorder = new MediaRecorder(stream);
+      let chunks: BlobPart[] = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setMediaBlobUrl(URL.createObjectURL(blob));
+        setAudioData(blob); // Set the audio data state
+        chunks = [];
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    });
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  }, [mediaRecorder]);
+
+  return {
+    mediaBlobUrl,
+    audioData, // Include audioData in the returned object
+    isRecording,
+    startRecording,
+    stopRecording,
+  };
+};
+```
+
+
+./utils/audioUtils.ts
+```
+// Utility functions for handling audio recording and processing
+export const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+  });
+};
+```
+
+
+./utils/cookieUtils.ts
+```
+import Cookies from 'js-cookie';
+
+export const setCookie = (name: string, value: string, expires: number | Date) => {
+  Cookies.set(name, value, { expires });
+};
+
+export const getCookie = (name: string) => {
+  return Cookies.get(name);
+};
+
+export const removeCookie = (name: string) => {
+  Cookies.remove(name);
+};
+```
+
+
+./utils/openAiUtils.ts
+```
+// utils/openAiUtils.ts
+
+import axios, { AxiosError } from 'axios';
+
+// Define the expected structure of the API responses
+interface OpenAIResponse<T> {
+  data: T;
+}
+
+interface AssistantData {
+  id: string;
+  // Include other properties of the assistant data if needed
+}
+
+interface ThreadData {
+  id: string;
+  // Include other properties of the thread data if needed
+}
+
+interface MessageData {
+  content: { text: string }[];
+  // Include other properties of the message data if needed
+}
+
+interface ImageData {
+  url: string;
+  // Include other properties of the image data if needed
+}
+
+interface AudioData {
+  url: string;
+  // Include other properties of the audio data if needed
+}
+
+// Now, let's use these interfaces in the Axios calls
+
+export const generateText = async (prompt: string, apiKey: string): Promise<string> => {
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+    'OpenAI-Beta': 'assistants=v1'
+  };
+
+  try {
+    // Step 1: Create an Assistant
+    const assistantResponse = await axios.post<OpenAIResponse<AssistantData>>(
+      'https://api.openai.com/v1/assistants',
+      {
+        name: "Chat Assistant",
+        instructions: "You are an AI that can understand and respond to user queries in a conversation.",
+        model: "gpt-4-1106-preview",
+      },
+      { headers }
+    );
+
+    const assistantId = assistantResponse.data.data.id; // Corrected access to the id property
+
+    // Step 2: Create a Thread
+    const threadResponse = await axios.post<OpenAIResponse<ThreadData>>(
+      'https://api.openai.com/v1/threads',
+      {},
+      { headers }
+    );
+
+    const threadId = threadResponse.data.data.id; // Corrected access to the id property
+
+    // Step 3: Add a Message to a Thread
+    await axios.post(
+      `https://api.openai.com/v1/threads/${threadId}/messages`,
+      {
+        role: "user",
+        content: prompt
+      },
+      { headers }
+    );
+
+    // Step 4: Run the Assistant
+    const runResponse = await axios.post(
+      `https://api.openai.com/v1/threads/${threadId}/runs`,
+      {
+        assistant_id: assistantId,
+      },
+      { headers }
+    );
+
+    // Step 5: Display the Assistant's Response
+    // Poll the run status until it's completed
+    // Implement a delay between polls if necessary
+
+    // Retrieve the messages added by the Assistant to the Thread
+    const messagesResponse = await axios.get<OpenAIResponse<MessageData[]>>(
+      `https://api.openai.com/v1/threads/${threadId}/messages`,
+      { headers }
+    );
+
+    // Extract the text from the last assistant message
+    const lastMessage = messagesResponse.data.data.pop();
+    return lastMessage.content.map(content => content.text).join(' ');
+  } catch (error: any) {
+    const axiosError = error as AxiosError;
+    console.error('Error generating text:', axiosError.response?.data || axiosError.message);
+    throw axiosError;
+  }
+};
+
+// The generateImage and generateAudio functions would be updated similarly
+
+
+export const generateImage = async (prompt: string, apiKey: string): Promise<string> => {
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+  };
+
+  try {
+    const response = await axios.post<OpenAIResponse<ImageData[]>>(
+      'https://api.openai.com/v1/images/generations',
+      {
+        prompt: prompt,
+        n: 1,
+        size: "1792x1024",
+        model: 'dall-e-3',
+        quality: 'hd',
+        style: 'natural'
+      },
+      { headers }
+    );
+    return response.data.data[0].url;
+  } catch (error: any) {
+    const axiosError = error as AxiosError;
+    console.error('Error generating image:', axiosError.response?.data || axiosError.message);
+    // Log the full error response for debugging
+    console.log(axiosError.response?.data);
+    throw axiosError;
+  }
+};
+
+export const generateAudio = async (text: string, voice: string, apiKey: string): Promise<string> => {
+  const headers = {
+    'Authorization': `Bearer ${apiKey}`,
+  };
+
+  try {
+    const response = await axios.post<OpenAIResponse<AudioData>>(
+      'https://api.openai.com/v1/audio/speech',
+      {
+        model: "tts-1",
+        voice: voice,
+        input: text,
+      },
+      { headers }
+    );
+    return response.data.data.url;
+  } catch (error: any) {
+    const axiosError = error as AxiosError;
+    console.error('Error generating audio:', axiosError.response?.data || axiosError.message);
+    throw axiosError;
+  }
+};
+```
+
+
+./context/ChatContext.tsx
+```
+import React, { createContext, useState } from 'react';
+
+export interface IMessage {
+  sender: 'user' | 'ai';
+  text: string;
+}
+
+export interface IChatContext {
+  apiKey: string;
+  isLoading: boolean;
+  characterImage: string;
+  messages: IMessage[];
+  setApiKeyValue: (key: string) => void;
+  sendMessage: (message: string) => void;
+  addMessage: (message: IMessage) => void;
+  setCharacterImage: (imageUrl: string) => void; // Add this line
+}
+
+export const ChatContext = createContext<IChatContext>({
+  apiKey: '',
+  isLoading: false,
+  characterImage: '',
+  messages: [],
+  setApiKeyValue: () => {},
+  sendMessage: () => {},
+  addMessage: () => {},
+  setCharacterImage: () => {}, // Implement this function
+});
+
+export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => { // Correctly type the children prop
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [characterImage, setCharacterImageState] = useState<string>(''); // Rename to avoid naming conflict
+  const [messages, setMessages] = useState<IMessage[]>([]);
+
+  const setApiKeyValue = (key: string) => {
+    setApiKey(key);
+  };
+
+  const sendMessage = (message: string) => {
+    // Implementation for sending a message
+  };
+
+  const addMessage = (message: IMessage) => {
+    setMessages((prevMessages) => [...prevMessages, message]);
+  };
+
+  const setCharacterImage = (imageUrl: string) => {
+    setCharacterImageState(imageUrl); // Use the state setter function
+  };
+
+  return (
+    <ChatContext.Provider
+      value={{
+        apiKey,
+        isLoading,
+        characterImage,
+        messages,
+        setApiKeyValue,
+        sendMessage,
+        addMessage,
+        setCharacterImage, // Provide this function to the context
+      }}
+    >
+      {children}
+    </ChatContext.Provider>
+  );
+};
+```
+
+
+./components/Spinner.tsx
+```
+import React from 'react';
+
+const Spinner: React.FC = () => {
+  return (
+    <div className="spinner">
+      <div className="loading"></div>
+    </div>
+  );
+};
+
+export default Spinner;
+```
+
+
+./components/ChatInput.tsx
+```
+import React, { useState, useContext } from 'react';
+import { ChatContext } from '../context/ChatContext';
+
+const ChatInput: React.FC = () => {
+  const [input, setInput] = useState('');
+  const { sendMessage } = useContext(ChatContext);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSend = () => {
+    if (input.trim()) {
+      sendMessage(input);
+      setInput('');
+    }
+  };
+
+  return (
+    <div className="chat-input">
+      <input
+        type="text"
+        value={input}
+        onChange={handleInputChange}
+        placeholder="Type your message here..."
+      />
+      <button onClick={handleSend}>Send</button>
+    </div>
+  );
+};
+
+export default ChatInput;
+```
+
+
+./components/ChatBox.tsx
+```
+import React, { useContext } from 'react';
+import { ChatContext } from '../context/ChatContext';
+import WebcamRecorder from './WebcamRecorder';
+import ChatInput from './ChatInput';
+import Spinner from './Spinner';
+
+const ChatBox: React.FC = () => {
+  const { isLoading, characterImage, messages } = useContext(ChatContext);
+
+  return (
+    <div className="chat-box">
+      {isLoading ? (
+        <Spinner />
+      ) : (
+        <>
+          <div className="character-image">
+            {characterImage && <img src={characterImage} alt="AI Character" />}
+          </div>
+          <div className="messages">
+            {messages.map((message, index) => (
+              <div key={index} className={`message ${message.sender}`}>
+                <p>{message.text}</p>
+              </div>
+            ))}
+          </div>
+          <WebcamRecorder />
+          <ChatInput />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ChatBox;
+```
+
+
+./components/WebcamRecorder.tsx
+```
+import React, { useContext, useEffect } from 'react';
+import Webcam from 'react-webcam';
+import { ChatContext } from '../context/ChatContext';
+
+const WebcamRecorder: React.FC = () => {
+  const webcamRef = React.useRef<Webcam>(null);
+  const { characterImage, messages, addMessage } = useContext(ChatContext);
+
+  useEffect(() => {
+    // When a new message from the AI is added, start recording the user's response
+    if (messages.length > 0 && messages[messages.length - 1].sender === 'ai') {
+      // Logic to play the AI's greeting audio and start recording the user's response
+      // This may involve using the Web Speech API or another method to play the audio
+      // After the audio is played, call a function to start recording the user's response
+    }
+  }, [messages]);
+
+  // Only show the webcam feed if the character image is set
+  return characterImage ? (
+    <div>
+      <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" />
+      {/* Additional logic and UI elements for recording and screenshots */}
+    </div>
+  ) : null;
+};
+
+export default WebcamRecorder;
+```
+
+
+./components/ApiKeyForm.tsx
+```
+import React, { useState } from 'react';
+
+interface ApiKeyFormProps {
+  onSubmit: (key: string) => void; // Define the onSubmit prop
+}
+
+const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ onSubmit }) => {
+  const [apiKey, setApiKey] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(apiKey); // Call the onSubmit function passed as a prop
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="api-key">OpenAI API Key:</label>
+      <input
+        id="api-key"
+        type="text"
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        placeholder="Enter your OpenAI API Key"
+      />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+
+export default ApiKeyForm;
+
+```
+
+
+./contributing.md
+```
+# Contributing to AI Video Chat Application
+
+We welcome contributions to the AI Video Chat Application project. Please read through the following guidelines before making a contribution.
+
+## Code of Conduct
+By participating in this project, you are expected to uphold our Code of Conduct.
+
+## Pull Requests
+- Fork the repository and create your branch from `main`.
+- If you've added code that should be tested, add tests.
+- Ensure the test suite passes.
+- Make sure your code lints.
+- Issue that pull request!
+
+## Reporting Issues
+We use GitHub issues to track public bugs. Report a problem by [opening a new issue](#); it's that easy!
+
+Thank you for contributing to the AI Video Chat Application!
+```
+
+
+./README.md
+```
+# AI Video Chat Application
+
+## Introduction
+Embark on a futuristic journey of interaction with AI-generated personalities via a video chat interface. Users can summon any character for a virtual face-to-face conversation, where the app not only crafts a visual representation using DALL·E 3 but also brings the persona to life through voice and responsive visual feedback using OpenAI's latest GPT-4 with vision capabilities.
+
+## Features
+- Dynamic Character Visualization: Choose any character for a chat and witness their AI-generated image come to life with DALL·E 3.
+- Interactive AI Conversations: Engage in fluid conversations as OpenAI's GPT models craft text responses in real-time.
+- Voice Synthesis: Experience the character's responses audibly, transformed from text to speech using OpenAI's API.
+- Visual Interaction: Utilize GPT-4's vision capabilities to analyze your webcam footage, allowing the AI to respond to your visual cues and transcribed audio for an immersive chat experience.
+- Personal API Integration: Run the application with your own OpenAI API key for a personalized and secure experience.
+
+## Technologies Used
+- Next.js: A robust React framework designed for production-ready applications.
+- TypeScript: A typed superset of JavaScript, ensuring more predictable code.
+- OpenAI's DALL·E 3: For generating detailed images of characters based on user prompts.
+- OpenAI's GPT-4 Models: For generating intelligent and contextual text responses.
+- OpenAI's GPT-4 with Vision: To analyze visual input from the user's webcam and enhance the interactive experience.
+- OpenAI's Text-to-Speech: To vocalize the AI character's text responses, simulating a real-time conversation.
+
+## Installation and Setup
+Instructions on how to install and set up the project locally.
+
+## User Story
+- API Key Entry: Upon launching the application, you will be prompted to enter your OpenAI API key.
+- Character Selection: Enter the name or description of the character you wish to chat with.
+- Image Generation: The app uses DALL·E 3 to generate an image of the character.
+- Voice Chat Initialization: The app crafts an initial response in a random voice.
+- Webcam and Microphone Access: The app requests access to your webcam and microphone.
+- Recording Your Reply: The app records your reply and captures snapshots through your webcam.
+- Interactive Dialogue: Your audio is transcribed and sent to the app along with webcam images.
+- Continuous Conversation: The dialogue with the AI character continues as long as you wish.
+
+## Contributions
+Information on how to contribute to the project for developers interested in enhancing the application's features.
+
+## License
+Details regarding the licensing of the project.
+
+### File Tree Structure
+
+```
+ai-video-chat-app/
+│
+├── public/                  # Static files and assets
+│   ├── favicon.ico          # Favicon for the web app
+│   └── svgs/                # SVG assets for UI components
+│       ├── microphone.svg   # Icon for the microphone
+│       └── camera.svg       # Icon for the camera
+│
+├── src/
+│   ├── components/          # Reusable components
+│   │   ├── ChatBox.tsx      # Main chat interface component
+│   │   ├── ChatInput.tsx    # Input component for user messages
+│   │   ├── Spinner.tsx      # Loading spinner component
+│   │   ├── WebcamRecorder.tsx # Component to handle webcam and microphone interactions
+│   │   └── ApiKeyForm.tsx   # Form component for entering the OpenAI API key
+│   │
+│   ├── context/             # Context for global state management
+│   │   └── ChatContext.tsx  # Context provider for chat-related state
+│   │
+│   ├── pages/               # Pages for the application
+│   │   ├── _app.tsx         # Custom App component for global state
+│   │   ├── index.tsx        # Home page with video chat interface
+│   │   └── api/
+│   │       └── transcribe.ts # API route for handling audio transcription
+│   │
+│   ├── styles/              # CSS modules for styling
+│   │   ├── globals.css      # Global styles
+│   │   └── ChatBox.module.css  # Styles for the chat box component
+│   │
+│   ├── types/               # Custom TypeScript type definitions
+│   │   └── index.d.ts       # Type definitions for the project
+│   │
+│   ├── utils/               # Utility functions
+│   │   ├── audioUtils.ts    # Utility functions for audio recording and processing
+│   │   ├── openaiUtils.ts   # Utility functions for interacting with OpenAI APIs
+│   │   └── cookieUtils.ts   # Utility functions for cookie management
+│   │
+│   ├── hooks/               # Custom React hooks
+│   │   └── useRecorder.ts   # Hook for managing audio recording logic and state
+│   │
+│   └── lib/                 # Library for shared functionalities
+│       └── api.ts           # Shared API handlers for OpenAI services
+│
+├── .env.local               # Environment variables
+├── package.json             # Project metadata and dependencies
+├── tsconfig.json            # TypeScript configuration
+├── next.config.js           # Next.js configuration
+├── README.md                # Project README file
+└── CONTRIBUTING.md          # Contribution guidelines
+```
+
+
+./next.config.js
+```
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+}
+
+module.exports = nextConfig
+
+```
+
